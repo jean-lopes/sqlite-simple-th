@@ -1,0 +1,41 @@
+name:                sqlite-simple-th
+version:             0.1.0.0
+github:              "jean-lopes/sqlite-simple-th"
+license:             BSD3
+author:              "Jean Carlo Giambastiani Lopes"
+maintainer:          "author[0] dot author[author.size-1] at hotmail dot com dot br"
+copyright:           "Copyright © 2018 Jean Carlo Giambastiani Lopes"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/jean-lopes/sqlite-simple-th#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- scientific
+- text
+- containers
+- megaparsec
+
+library:
+  source-dirs: src
+
+tests:
+  sqlite-simple-th-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - sqlite-simple-th

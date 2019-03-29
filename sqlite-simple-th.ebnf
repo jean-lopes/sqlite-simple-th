@@ -1,0 +1,235 @@
+column constraint
+  = 'NOT', 'NULL'
+  | 'DEFAULT'
+    , ( signed number
+      | literal value
+      | '(', expr, ')' 
+      ) 
+  ;
+
+column def
+  = column name
+  , [ type name ]
+  , { column constraint }
+  ;
+
+column name list
+  = '('
+  , column name
+  , { ',', column name }
+  , ')'
+  ;
+
+(* Comentários não podem ser alinhados *)
+comment syntax
+  = ( '--'
+      , { ? anything except new line ? }
+      , ( ? new line ? | ? end of input ? )
+    | '/*'
+      , ? anything except */ ?
+      , ( '*/' | ? end of input ? ) 
+    )
+  ;
+
+create table stmt
+  = 'CREATE'
+  , 'TABLE'
+  , table name
+  , '('
+  , column def
+  , { ',', column def }
+  , ')'
+  ;
+
+delete stmt
+  = 'DELETE'
+  , 'FROM'
+  , table name 
+  , [ 'WHERE', expr ]
+  , [ 'ORDER'
+    , 'BY'
+    , ordering term
+    , { ',', ordering term }
+    , [ 'LIMIT'
+      , expr
+      , [ ( 'OFFSET' | ',' ), expr ]
+    ]
+  ;
+
+expr
+  = literal value
+  | bind parameter
+  | [ table name, '.' ], column name
+  | unary operator, expr
+  | expr, binary operator, expr
+  | '(', expr, { ',', expr }, ')'
+  | 'CAST', '(', expr, 'AS', type name, ')'
+  | expr, [ 'NOT' ], 'LIKE', expr
+  | expr, ( 'ISNULL' | 'NOTNULL' | 'NOT', 'NULL' )
+  | expr, 'IS', [ 'NOT' ], expr
+  | expr, [ 'NOT' ], 'BETWEEN', expr, 'AND', expr
+  | expr, [ 'NOT' ], 'IN', '(', { select stmt | expr, { ',', expr } }, ')'
+  | [ [ 'NOT' ], 'EXISTS' ], '(', select stmt, ')'
+  | 'CASE'
+    , [ expr ]
+    , 'WHEN', expr, 'THEN', expr
+    , { 'WHEN', expr, 'THEN', expr }
+    , [ 'ELSE', expr ]
+    , 'END'
+  ;
+
+insert stmt
+  = 'INSERT'
+  , 'INTO'
+  , table name
+  , [ '('
+    , column name
+    , { ',', column name }
+    , ')' 
+    ]
+  , ( 'DEFAULT', 'VALUES'
+    | 'VALUES'
+      , '(', expr, { ',', expr }, ')'
+      , { ',', '(', expr, { ',', expr }, ')' }
+    )
+  ;
+
+literal value
+  = numeric literal
+  | string literal
+  | 'NULL'
+  | 'TRUE'
+  | 'FALSE'
+  ;
+
+numeric literal
+  = '0x', hex digit, { hex digit }
+  | ( digit, { digit }, [ '.', digit, { digit } ] ] 
+    | '.', digit, { digit }
+    )
+    , [ 'E', [ '+' | '-' ], digit, { digit } ]
+  ;
+
+ordering term
+  = expr
+  , [ 'ASC' | 'DESC' ]
+  ;
+
+result column
+  = '*'
+  | table name, '.', '*'
+  | expr
+  ;
+
+select stmt
+  = ( 'SELECT'
+      , [ 'DISTINCT' | 'ALL' ]
+      , result column
+      , { ',', result column }
+      , [ 'FROM', table or subquery, { ',' table or subquery } ]
+      , [ 'WHERE', expr ]
+      , [ 'GROUP', 'BY', expr, { ',', expr }, [ 'HAVING', expr ] ]
+    | 'VALUES'
+      , '(', expr, { ',', expr }, ')'
+      , { ',', '(', expr, { ',', expr }, ')' }
+    )
+  , [ 'ORDER', 'BY', ordering term, { ',', ordering term } ]
+  , [ 'LIMIT', expr, [ ( 'OFFSET' | ',' ), expr ] ]
+  ;
+
+signed number
+  = [ '+' | '-' ]
+  , numeric literal
+  ;
+
+sql stmt
+  = create table stmt
+  | delete stmt
+  | insert stmt
+  | select stmt
+  | update stmt
+  ;
+
+sql stmt list
+  = [ sql stmt, { ';', sql stmt } ] 
+  ;
+
+table or subquery
+  = table name
+  | '(', table or subquery, { ',', table or subquery }, ')'
+  | '(', select stmt, ')'
+  ;
+
+type name
+  = name
+  , { name }
+  , [ '(', signed number, [ ',', signed number ], ')' ]
+  ;
+
+update stmt
+  = 'UPDATE'
+  , table name
+  , 'SET'
+  , ( column name | column name list ), '=', expr
+  , { ',', ( column name | column name list ), '=', expr }
+  , [ 'WHERE', expr ]
+  , [ 'ORDER'
+    , 'BY'
+    , ordering term
+    , { ',', ordering term } 
+    , 'LIMIT'
+    , expr
+    , [ ( 'OFFSET' | ',' ), expr ]
+    ]
+  ;
+
+
+(* novas regras *)
+unary operator
+  = '-'
+  | '+'
+  | '~'
+  | 'NOT'
+  ;
+
+(* operadores por ordem de precedencia *)
+binary operator 
+  = '||' | '*'    | '/'   | '%'
+  | '+'  | '-'    | '<<'  | '>>'
+  | '&'  | '|'    | '<'   | '<='
+  | '>'  | '>='   | '='   | '=='
+  | '!=' | '<>'   | 'IS'  | ( 'IS', 'NOT' )
+  | 'IN' | 'LIKE' | 'AND' | 'OR'
+  ;
+
+bind parameter
+  = '?', [ digit, { digit } ]
+  | ( ':' | '@' | '$' ), name
+  ;
+
+column name
+  = name
+  ;
+
+table name
+  = name
+  ;
+
+string
+  = "'"
+  , ? anything except ' ?
+  , "'"
+  ;
+
+name
+  = ? any letter ?
+  , ? any letter ? | '_'
+  ;
+
+hex digit
+  = '0' | '1' | '2' | '3'
+  | '4' | '5' | '6' | '7'
+  | '8' | '9' | 'a' | 'b'
+  | 'c' | 'd' | 'e' | 'f'
+  | 'A' | 'B' | 'C' | 'D'
+  | 'E' | 'F' ;

@@ -1,0 +1,301 @@
+create table stmt
+  = 'CREATE', [ 'TEMP' | 'TEMPORARY' ], 'TABLE',
+    [ 'IF', 'NOT', 'EXISTS' ],
+    [ schema name, '.' ], table name,
+    ( '(', column def, { ',', column def }, 
+      { ',', table constraint }, 
+      ')', 
+      [ 'WITHOUT', 'ROWID' ]
+    | 'AS', select stmt );
+
+column def
+  = column name, 
+    [ type name ], 
+    { column constraint };
+
+column constraint
+  = [ 'CONSTRAINT', name ],
+  ( 'PRIMARY', 'KEY', 
+    [ 'ASC' | 'DESC' ], 
+    conflict clause, 
+    [ 'AUTOINCREMENT' ]
+  | 'NOT', 'NULL', conflict clause
+  | 'UNIQUE', conflict clause 
+  | 'CHECK', '(', expr, ')'
+  | 'DEFAULT', 
+    ( signed number
+    | literal value
+    | '(', expr, ')' )
+  | 'COLLATE', collation name
+  | foreign key clause );
+
+conflict cause
+  = [ 'ON', 'CONFLICT',
+    ( 'ROLLBACK'
+    | 'ABORT'
+    | 'FAIL'
+    | 'IGNORE'
+    | 'REPLACE' ) ];
+
+expr
+  = literal value
+  | bind parameter
+  | [ [ schema name, '.' ], table name, '.' ], column name
+  | unary operator, expr
+  | expr, binary operator, expr
+  | function name, '(', 
+    [ [ 'DISTINCT', expr, { ',', expr } | '*' ], 
+    ')'
+  | '(', expr, { ',', expr }, ')'
+  | 'CAST', '(', expr, 'AS', type name, ')'
+  | expr, [ 'NOT' ],
+    ( 'LIKE' | 'GLOB' | 'REGEXP' | 'MATCH' ), 
+    expr, [ 'ESCAPE', expr ]
+  | expr, ( 'ISNULL' | 'NOTNULL' | 'NOT', 'NULL' )
+  | expr, 'IS', [ 'NOT' ], expr
+  | expr, [ 'NOT' ], 'BETWEEN', expr, 'AND', expr
+  | expr, [ 'NOT' ], 'IN',
+    ( '(', [ select stmt | expr, { ',', expr } ], ')' 
+    | [ schema name, '.' ], table name
+    | [ schema name, '.' ], table function, 
+      '(', [ expr, { ',', expr } ], ')' )
+  | [ [ 'NOT' ], 'EXISTS' ], '(', select stmt, ')'
+  | 'CASE', [ expr ],
+    'WHEN', expr, 'THEN', expr, { 'WHEN', expr, 'THEN', expr },
+    [ 'ELSE', expr ],
+    'END'
+  | raise function
+  | window func, '(', 
+    [ expr, { ',', expr } | '*' ], ')', 
+    [ filter ], 'OVER', ( window defn | window name )
+  ;
+
+filter
+  = 'FILTER', '(', 'WHERE', expr, ')';
+
+raise function
+  = 'RAISE', '(',
+  ( 'IGNORE'
+  | ( 'ROLLBACK' | 'ABORT' | 'FAIL' ), 
+    ',', error message
+  ), ')';
+
+window defn
+  = '(', 
+    [ 'PARTITION', 'BY', expr, { ',', expr } ],
+    [ 'ORDER', 'BY', 
+      ordering term, 
+      { ',', ordering term } ], 
+    [ frame spec ], 
+    ')';
+
+(* abstrair repetições *)
+frame spec
+  = ( 'RANGE' | 'ROWS' ),
+    ( 'BETWEEN'
+    , ( 'UNBOUND', 'PRECEDING'
+      | expr, 'PRECEDING'
+      | 'CURRENT', 'ROW'
+      | expr, 'FOLLOWING'
+      )
+    , 'AND'
+    , ( expr 'PRECEDING'
+      | 'CURRENT', 'ROW'
+      | expr, 'FOLLOWING'
+      | 'UNBOUNDED', 'FOLLOWING' )
+  | ( 'UNBOUNDED', 'PRECEDING'
+    | expr, 'PRECEDING'
+    | 'CURRENT', 'ROW'
+    | expr, 'FOLLOWING' ) );
+
+ordering term
+  = expr, [ [ 'COLLATE', collation name ], [ 'ASC' | 'DESC' ] ];
+
+(* formatação diferente *)
+
+foreign key clause
+  = 'REFERENCES', foreign table
+  , [ '(', column name, { ',', column name }, ')' ]
+  , 'ON'
+  , ( 'DELETE' | 'UPDATE' )
+  , { ( 'SET', 'NULL'
+      | 'SET', 'DEFAULT'
+      | 'CASCADE'
+      | 'RESTRICT'
+      | 'NO', 'ACTION'
+      )
+    | 'MATCH' name
+    }
+  , [ [ 'NOT' ]
+    , 'DEFERRABLE'
+    , [ 'INITIALLY', 'DEFERRED'
+      | 'INITIALLY', 'IMMEDIATE'
+      ]
+    ]
+  ;
+
+literal value
+  = numeric literal
+  | string literal
+  | blob literal
+  | 'NULL'
+  | 'TRUE'
+  | 'FALSE'
+  | 'CURRENT_TIME'
+  | 'CURRENT_DATE'
+  | 'CURRENT_TIMESTAMP'
+  ;
+
+signed number
+  = ( '+' | '-' )
+  , numeric literal
+  ;
+
+type name
+  = name
+  , { name }
+  , [ '(', signed number, ')' 
+    | '(', signed number, ',', signed number ')'
+    ]
+  ;
+
+select stmt
+  = [ 'WITH' , [ 'RECURSIVE' ], common table expression, { ',', common table expression } ]
+  , ( select stmt select | select stmt values )
+  , { compound operator, ( select stmt select | select stmt values ) }
+  , [ 'ORDER', 'BY', ordering term, { ',', ordering term } ]
+  , [ 'LIMIT', expr, [ ( 'OFFSET' | ',' ), expr ] ]
+  ;
+
+(* novo *)
+select stmt values
+  = 'VALUES'
+  , '(', expr, ( ',', expr ), ')'
+  , { ',', '(', expr, ( ',', expr ), ')' }
+  ;
+
+(* novo *)
+select stmt select
+  = 'SELECT'
+  , ( 'DISTINCT' | 'ALL' )
+  , result column, { ',', result column }
+  , [ 'FROM'
+    , ( table or subquery, { ',', table or subquery }
+      | join clause 
+      ) 
+    ]
+  , [ 'WHERE', expr ]
+  , [ 'GROUP', 'BY', expr
+    , { ',', expr }, [ 'HAVING', expr ] 
+    ]
+  , [ 'WINDOW', window name, 'AS', window defn
+    , { ',', window name, 'AS', window defn } 
+    ]
+  ;
+
+common table expression
+  = table name
+  , [ '(', column name, { ',', column name }, ')' ]
+  , 'AS', '(', select stmt, ')'
+  ;
+
+compound operator
+  = 'UNION'
+  | 'UNION', 'ALL'
+  | 'INTERSECT'
+  | 'EXCEPT'
+  ;
+
+join clause
+  = ;
+
+join constraint
+  = [ 'ON', expr 
+    | 'USING', '(', column name, { ',', column name }, ')' 
+    ]
+  ;
+
+join operator
+  = ','
+  | [ 'NATURAL' ]
+    , ( 'LEFT', [ 'OUTER' ] 
+      | 'INNER'
+      | 'CROSS'
+      )
+    , 'JOIN'
+  ;
+
+result column
+  = expr, [ [ 'AS' ], column alias ]
+  | '*'
+  | table name, '.', '*'
+  ;
+
+table or subquery
+  = table or subquery simple
+  | table or subquery function
+  | table or subquery subquery
+  | table or subquery select
+  ;
+
+(* novo *)
+as table alias
+  = [ 'AS' ], table alias;
+
+(* novo *)
+table or subquery simple
+  = [ schema name, '.' ]
+  , table name
+  , [ [ as table alias ]
+    , [ 'INDEXED', 'BY', index name 
+      | 'NOT', 'INDEXED'
+      ] 
+    ]
+  ;
+
+(* novo *)
+table or subquery function
+  = [ schema name, '.' ]
+  , table function name
+  , '('
+  , expr, { ',', expr }
+  , ')'
+  , [ as table alias ]
+  ;
+
+(* novo *)
+table or subquery subquery
+  = '('
+  , ( table or subquery, { ',', table or subquery } 
+    | join clause 
+    )
+  , ')'
+  ;
+
+(* novo *)
+table or subquery select
+  = '(', select stmt, ')', [ as table alias ];
+
+table constraint
+  = [ 'CONSTRAINT', name ]
+  , ( ( 'PRIMARY', 'KEY' | 'UNIQUE' )
+      , '('
+      , indexed column, { ',', indexed column }
+      , ')'
+      , conflict clause
+    | 'CHECK', '(', expr, ')'
+    | 'FOREIGN'
+      , 'KEY'
+      , '('
+      , column name
+      , { ',', column name }
+      , ')'
+      , foreign key clause
+    )
+  ;
+
+indexed column
+  = ( column name | expr )
+  , [ 'COLLATE', collation name ]
+  , [ 'ASC'| 'DESC' ]
+  ;

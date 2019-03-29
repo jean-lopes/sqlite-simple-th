@@ -1,0 +1,3 @@
+:set -isrc
+:set -XOverloadedStrings
+:load src/SQL/Parser.hs src/SQL/AST.hs
