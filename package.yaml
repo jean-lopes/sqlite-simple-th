@@ -25,6 +25,9 @@ dependencies:
 - text
 - containers
 - megaparsec
+- parser-combinators
+- hspec
+- hspec-megaparsec
 
 library:
   source-dirs: src

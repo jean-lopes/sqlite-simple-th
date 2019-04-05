@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 60b5eb92b27ec5fc4fa8bbbad523db1199f4111f0ba550b9eed6d5f54c17df8d
+-- hash: 39beba4e77f34ab9523286c351c7b53b7d7f4afae006e3cbd51b4cd4b280f69e
 
 name:           sqlite-simple-th
 version:        0.1.0.0
@@ -36,7 +36,10 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , hspec
+    , hspec-megaparsec
     , megaparsec
+    , parser-combinators
     , scientific
     , text
   default-language: Haskell2010
@@ -52,7 +55,10 @@ test-suite sqlite-simple-th-test
   build-depends:
       base >=4.7 && <5
     , containers
+    , hspec
+    , hspec-megaparsec
     , megaparsec
+    , parser-combinators
     , scientific
     , sqlite-simple-th
     , text
